@@ -1,0 +1,26 @@
+# Cấu hình IDE
+.idea/
+
+# Bỏ qua các file .env chứa biến môi trường
+.env
+.env.local
+
+# Bỏ qua các file log
+*.log
+
+# --- Frontend (Giả sử là React/Vue/Node) ---
+/frontend/node_modules/
+/frontend/build/
+/frontend/.DS_Store
+
+# --- Backend (Django/Python) ---
+/backend/__pycache__/
+/backend/*.pyc
+/backend/db.sqlite3
+/backend/staticfiles/
+/backend/media/
+
+# Thư mục môi trường ảo Python (nếu bạn tạo)
+/venv/
+/env/
+*.egg-info/
