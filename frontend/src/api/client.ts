@@ -1,35 +1,74 @@
+// api/client.ts - SIMPLIFIED (remove duplicates)
 import axios from "axios";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// Tạo axios instance
 export const api = axios.create({
   baseURL: Platform.select({
     android: "http://10.0.2.2:8000",
     ios: "http://127.0.0.1:8000",
-    default: "http://192.168.x.x:8000",
+    default: "http://localhost:8000", // Fallback
   }),
   timeout: 15000,
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-export async function initToken() {
-  const token = await AsyncStorage.getItem("access_token");
-  if (token) api.defaults.headers.common.Authorization = `Bearer ${token}`;
-  else delete api.defaults.headers.common.Authorization;
-  return token;
-}
+// ✅ Response interceptor để handle 401 errors
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
 
-export async function login(username: string, password: string) {
-  const res = await api.post("/api/accounts/token/", { username, password });
-  const { access, refresh } = res.data;
-  await AsyncStorage.setItem("access_token", access);
-  await AsyncStorage.setItem("refresh_token", refresh);
-  api.defaults.headers.common.Authorization = `Bearer ${access}`;
-  return res.data;
-}
+    // Nếu lỗi 401 và chưa retry
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
 
+      try {
+        // Try to refresh token
+        const refreshToken = await AsyncStorage.getItem("refresh_token");
+        if (!refreshToken) {
+          throw new Error("No refresh token");
+        }
+
+        const res = await axios.post(
+          `${api.defaults.baseURL}/api/accounts/token/refresh/`,
+          { refresh: refreshToken }
+        );
+
+        const newAccess = res.data?.access;
+        if (newAccess) {
+          await AsyncStorage.setItem("access_token", newAccess);
+          api.defaults.headers.common.Authorization = `Bearer ${newAccess}`;
+          originalRequest.headers.Authorization = `Bearer ${newAccess}`;
+          
+          // Retry original request
+          return api(originalRequest);
+        }
+      } catch (refreshError) {
+        // Refresh failed -> clear tokens
+        await AsyncStorage.multiRemove(["access_token", "refresh_token"]);
+        delete api.defaults.headers.common.Authorization;
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+// ✅ Helper function để clear tokens (dùng cho logout)
 export async function clearTokens() {
-  await AsyncStorage.multiRemove(['access_token', 'refresh_token']);
-  delete api.defaults.headers.common.Authorization;
+  try {
+    await AsyncStorage.multiRemove(["access_token", "refresh_token"]);
+    delete api.defaults.headers.common.Authorization;
+    console.log("[Client] Tokens cleared");
+  } catch (error) {
+    console.error("[Client] Error clearing tokens:", error);
+    throw error;
+  }
 }
 
 export default api;

@@ -1,12 +1,13 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
+import type { Recipe } from '../types/recipe';
 
-// Auth Stack
+// Auth stack
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
 };
 
-// App Tab
+// Tabs
 export type AppTabParamList = {
   Home: undefined;
   Post: undefined;
@@ -14,13 +15,13 @@ export type AppTabParamList = {
   Settings: undefined;
 };
 
-// Root Stack
+// Root stack (bọc Tabs + các màn chi tiết)
 export type RootStackParamList = {
-  Auth: NavigatorScreenParams<AuthStackParamList>;
-  App: NavigatorScreenParams<AppTabParamList>;
+  MainTabs: NavigatorScreenParams<AppTabParamList>;
+  DishDetails: { recipe: Recipe };
+  Scan: undefined;
 };
 
-// Navigation prop types
 declare global {
   namespace ReactNavigation {
     interface RootParamList extends RootStackParamList {}

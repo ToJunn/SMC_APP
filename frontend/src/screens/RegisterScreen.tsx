@@ -1,233 +1,267 @@
+// src/screens/RegisterScreen.tsx - MERGED
 import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
+  TouchableOpacity,
+  ImageBackground,
+  StatusBar,
+  TextInput,
   ActivityIndicator,
   Alert,
-  Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack'; 
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view'; 
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { COLORS, Spacing, Radius, FontSize, Shadow } from '../ui/theme';
+import { register as apiRegister } from '../api/auth';
+import { RootStackParamList } from '../navigation/AppNavigator';
 
-// Nhập hàm API từ dịch vụ xác thực mới
-import { register, initToken } from '../api/auth'; 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-// Nhập Theme (COLORS, Spacing, v.v.)
-import { COLORS, Spacing, Radius, FontSize } from '../ui/theme'; 
-
-
-// Định nghĩa kiểu điều hướng
-type AuthStackParamList = {
-  Login: undefined;
-  Home: undefined; 
-};
-type NavigationProp = StackNavigationProp<AuthStackParamList, 'Login'>;
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Register'>;
 
 const RegisterScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [verifyPassword, setVerifyPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
+    // Validation
     if (!username || !email || !password) {
-      Alert.alert('Lỗi', 'Vui lòng điền đủ Tên, Email và Mật khẩu.');
+      Alert.alert('Error', 'Please fill in all fields');
       return;
     }
+
     if (password.length < 6) {
-      Alert.alert('Lỗi', 'Mật khẩu phải có ít nhất 6 ký tự.');
+      Alert.alert('Error', 'Password must be at least 6 characters');
       return;
     }
 
-    setIsLoading(true);
-    try {
-      await register(username, email, password);
-      
-      // Trigger token check to navigate to Home
-      const token = await AsyncStorage.getItem('access_token');
-      if (token) {
-        await initToken();
-        Alert.alert('Thành công', 'Đăng ký tài khoản thành công!');
-      }
-      
-    } catch (error: any) {
-      console.error('Registration failed:', error.response || error);
-      
-      let errorMessage = 'Đăng ký thất bại. Vui lòng thử lại.';
+    if (password !== verifyPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
 
-      if (error.response && error.response.data) {
-        // Xử lý lỗi từ API (giả định cấu trúc lỗi)
-        const data = error.response.data;
-        if (data.email) {
-          errorMessage = 'Email này đã được sử dụng.';
-        } else if (data.username) {
-          errorMessage = 'Tên người dùng này đã tồn tại.';
-        }
-      } 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await apiRegister(username, email, password);
       
-      Alert.alert('Lỗi Đăng ký', errorMessage);
+      Alert.alert(
+        'Success! 🎉',
+        'Account created successfully. Please login.',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.replace('Login'),
+          },
+        ]
+      );
+    } catch (error: any) {
+      Alert.alert(
+        'Registration Failed',
+        error.message || 'Unable to create account. Please try again.'
+      );
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <KeyboardAwareScrollView
-      contentContainerStyle={styles.scrollContainer}
-      enableOnAndroid={true}
-    >
-      <View style={styles.container}>
-        <Text style={styles.heading}>Bắt đầu nào! 👩‍🍳</Text>
-        <Text style={styles.subText}>Tham gia cộng đồng và khám phá công thức mới.</Text>
-
-        {/* Input Tên người dùng */}
-        <View style={styles.inputContainer}>
-          <Image source={require('../../assets/images/user.png')} style={styles.icon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Tên người dùng"
-            placeholderTextColor={COLORS.mediumGray}
-            autoCapitalize="words"
-            value={username}
-            onChangeText={setUsername}
-            editable={!isLoading}
-          />
-        </View>
-        
-        {/* Input Email */}
-        <View style={styles.inputContainer}>
-          <Image source={require('../../assets/images/email.png')} style={styles.icon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor={COLORS.mediumGray}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            value={email}
-            onChangeText={setEmail}
-            editable={!isLoading}
-          />
-        </View>
-
-        {/* Input Mật khẩu */}
-        <View style={styles.inputContainer}>
-          <Image source={require('../../assets/images/password.png')} style={styles.icon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Mật khẩu (tối thiểu 6 ký tự)"
-            placeholderTextColor={COLORS.mediumGray}
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            editable={!isLoading}
-          />
-        </View>
-
-        {/* Nút Đăng ký */}
-        <TouchableOpacity
-          style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
-          onPress={handleRegister}
-          disabled={isLoading}
+    <View style={styles.background}>
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
+      <SafeAreaView style={styles.container}>
+        <ImageBackground
+          source={require('../assets/images/background.png')}
+          style={styles.topBackground}
+          resizeMode="cover"
         >
-          {isLoading ? (
-            <ActivityIndicator color={COLORS.white} />
-          ) : (
-            <Text style={styles.primaryButtonText}>Tạo tài khoản</Text>
-          )}
-        </TouchableOpacity>
-        
-        {/* Liên kết đến Đăng nhập */}
-        <TouchableOpacity 
-          style={styles.secondaryButton} 
-          onPress={() => navigation.navigate('Login')}
-          disabled={isLoading}
-        >
-          <Text style={styles.secondaryButtonText}>
-            Đã có tài khoản? <Text style={styles.highlightText}>Đăng nhập</Text>
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAwareScrollView>
+          {/* Header */}
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Text style={styles.backText}>← Back</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+              <Text style={styles.loginLink}>Login</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.formContainer}>
+            <Text style={styles.title}>Join SmartChef! 👨‍🍳</Text>
+            <Text style={styles.subtitle}>Create your account to get started</Text>
+
+            <Text style={styles.label}>Username</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Choose a username"
+              placeholderTextColor={COLORS.placeholder}
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+              editable={!loading}
+            />
+
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="your.email@example.com"
+              placeholderTextColor={COLORS.placeholder}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              editable={!loading}
+            />
+
+            <Text style={styles.label}>Password</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="At least 6 characters"
+              placeholderTextColor={COLORS.placeholder}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              editable={!loading}
+            />
+
+            <Text style={styles.label}>Confirm Password</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Re-enter your password"
+              placeholderTextColor={COLORS.placeholder}
+              value={verifyPassword}
+              onChangeText={setVerifyPassword}
+              secureTextEntry
+              editable={!loading}
+            />
+
+            <TouchableOpacity
+              style={[styles.registerButton, loading && { opacity: 0.6 }]}
+              onPress={handleRegister}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.registerButtonText}>Create Account</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.loginRow}>
+              <Text style={styles.loginText}>Already have an account? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                <Text style={styles.loginLinkText}>Login</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ImageBackground>
+      </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  scrollContainer: { flexGrow: 1, backgroundColor: COLORS.background },
+  background: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+  },
   container: {
     flex: 1,
-    padding: Spacing.large, 
-    backgroundColor: COLORS.background,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  heading: {
-    fontSize: FontSize.heading,
-    fontWeight: '800',
-    color: COLORS.darkGray,
-    marginBottom: Spacing.small,
-    textAlign: 'center',
-  },
-  subText: {
-    fontSize: FontSize.large,
-    color: COLORS.darkGray,
-    marginBottom: Spacing.large * 1.5,
-    textAlign: 'center',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 55, 
-    backgroundColor: COLORS.lightGray,
-    borderRadius: Radius.large, 
-    paddingHorizontal: Spacing.medium,
-    marginBottom: Spacing.medium,
-    width: '100%',
-  },
-  icon: {
-    width: 24,
-    height: 24,
-    marginRight: Spacing.small,
-    tintColor: COLORS.mediumGray, 
-  },
-  input: {
+  topBackground: {
     flex: 1,
-    fontSize: FontSize.large,
-    color: COLORS.darkGray,
-  },
-  primaryButton: {
-    backgroundColor: COLORS.primary, 
-    paddingVertical: Spacing.medium,
-    borderRadius: Radius.large, 
-    marginTop: Spacing.large,
     alignItems: 'center',
     justifyContent: 'center',
-    width: '100%',
-    height: 55, 
+    paddingHorizontal: 20,
   },
-  buttonDisabled: {
-    backgroundColor: COLORS.mediumGray,
+  headerRow: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  primaryButtonText: {
+  backText: {
+    fontSize: 18,
     color: COLORS.white,
-    fontSize: FontSize.large, 
     fontWeight: 'bold',
   },
-  secondaryButton: {
-    marginTop: Spacing.large,
-    padding: Spacing.small,
+  loginLink: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.error,
+  },
+  formContainer: {
+    width: '100%',
+    backgroundColor: COLORS.white,
+    borderRadius: Radius.large,
+    padding: Spacing.large,
+    ...Shadow.medium,
+  },
+  title: {
+    fontSize: FontSize.title,
+    fontWeight: 'bold',
+    color: COLORS.accent,
+    textAlign: 'center',
+    marginBottom: Spacing.small,
+  },
+  subtitle: {
+    fontSize: FontSize.regular,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.large,
+  },
+  label: {
+    fontSize: FontSize.regular,
+    fontWeight: '500',
+    color: COLORS.text,
+    marginBottom: Spacing.small,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    borderRadius: Radius.medium,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    fontSize: FontSize.medium,
+    marginBottom: Spacing.medium,
+    color: COLORS.text,
+  },
+  registerButton: {
+    backgroundColor: COLORS.secondary,
+    borderRadius: Radius.medium,
+    paddingVertical: 15,
+    alignItems: 'center',
+    marginTop: Spacing.small,
+    marginBottom: Spacing.medium,
+  },
+  registerButtonText: {
+    color: COLORS.white,
+    fontSize: FontSize.large,
+    fontWeight: 'bold',
+  },
+  loginRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  secondaryButtonText: {
-    color: COLORS.darkGray,
-    fontSize: FontSize.large,
+  loginText: {
+    fontSize: FontSize.regular,
+    color: COLORS.textSecondary,
   },
-  highlightText: {
-    color: COLORS.primary, 
+  loginLinkText: {
+    fontSize: FontSize.regular,
+    color: COLORS.primary,
     fontWeight: 'bold',
   },
 });

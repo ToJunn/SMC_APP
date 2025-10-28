@@ -1,101 +1,52 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import type { AppTabParamList } from './types';
 import { COLORS } from '../ui/theme';
-import { AppTabParamList } from './types';
-import { Animated } from 'react-native';
 
-// Screens
 import HomeScreen from '../screens/HomeScreen';
 import PostScreen from '../screens/PostScreen';
 import ProfileScreen from '../screens/ProfileScreen';
-import SettingScreen from '../screens/SettingScreen';
-
-// AppTabs.tsx (rút gọn phần Navigator)
+import SettingsScreen from '../screens/SettingsScreen';
+import FavoritesScreen from '../screens/FavoritesScreen';
 
 const Tab = createBottomTabNavigator<AppTabParamList>();
 
-function TabBarIcon({
-  focused,
-  color,
-  name,
-  value,
-}: {
-  focused: boolean;
-  color: string;
-  name: string;
-  value: Animated.Value;
-}) {
-  React.useEffect(() => {
-    Animated.spring(value, {
-      toValue: focused ? 1 : 0,
-      useNativeDriver: true,
-      tension: 50,
-      friction: 4,
-    }).start();
-  }, [focused, value]);
-
-  const scale = value.interpolate({ inputRange: [0, 1], outputRange: [1, 1.3] });
-
-  return (
-    <Animated.View style={{ transform: [{ scale }] }}>
-      <Ionicons name={name} size={30} color={color} />
-    </Animated.View>
-  );
-}
-
 export default function AppTabs() {
-  const tabIconRefs = React.useMemo(
-    () => ({
-      Home: new Animated.Value(0),
-      Post: new Animated.Value(0),
-      Profile: new Animated.Value(0),
-      Settings: new Animated.Value(0),
-    }),
-    []
-  );
-
   return (
     <Tab.Navigator
       initialRouteName="Home"
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: COLORS.white,
-        tabBarInactiveTintColor: COLORS.mediumGray,
+        tabBarActiveTintColor: '#fff',
+        tabBarInactiveTintColor: '#e6e6e6',
+        // Để tránh bị che, trước mắt KHÔNG absolute
         tabBarStyle: {
           backgroundColor: COLORS.primary,
-          borderTopWidth: 0,
-          elevation: 5,
-          height: 100,
-          paddingBottom: 9,
+          height: 115,
           paddingTop: 15,
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
-          position: 'absolute',
+          paddingBottom: 15,
+          borderTopWidth: 0,
         },
-        tabBarIcon: ({ focused, color }) => {
-          const iconName =
-            route.name === 'Home' ? (focused ? 'home' : 'home-outline') :
-            route.name === 'Post' ? (focused ? 'add-circle' : 'add-circle-outline') :
-            route.name === 'Profile' ? (focused ? 'person' : 'person-outline') :
-            (focused ? 'settings' : 'settings-outline');
-
-          return (
-            <TabBarIcon
-              focused={focused}
-              color={color}
-              name={iconName}
-              value={tabIconRefs[route.name as keyof typeof tabIconRefs]}
-            />
-          );
+        tabBarHideOnKeyboard: true,
+        tabBarIcon: ({ color, focused }) => {
+          const map: Record<keyof AppTabParamList, [string, string]> = {
+            Home: ['home-outline', 'home'],
+            Favorites: ['heart-outline', 'heart'],
+            Post: ['add-circle-outline', 'add-circle'],
+            Profile: ['person-outline', 'person'],
+            Settings: ['settings-outline', 'settings'],
+          };
+          const [off, on] = map[route.name as keyof AppTabParamList] ?? ['ellipse-outline', 'ellipse'];
+          return <Ionicons name={focused ? on : off} size={30} color={color} />;
         },
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: '' }} />
+      <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ title: '' }} />
       <Tab.Screen name="Post" component={PostScreen} options={{ title: '' }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: '' }} />
-      <Tab.Screen name="Settings" component={SettingScreen} options={{ title: '' }} />
+      <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: '' }} />
     </Tab.Navigator>
   );
 }
-

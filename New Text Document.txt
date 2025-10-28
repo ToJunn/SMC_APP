@@ -1,0 +1,11 @@
+cd Desktop\FPTU\EXE101\smartchef\backend
+
+python manage.py runserver
+
+.venv\Scripts\activate
+
+cd .\Desktop\FPTU\EXE101\smartchef\frontend
+
+npx react-native start --reset-cache
+
+npm run android

@@ -1,77 +1,73 @@
-// App.tsx
-import * as React from "react";
-import { StatusBar, useColorScheme, ActivityIndicator, View } from "react-native";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-import { NavigationContainer } from "@react-navigation/native";
-import { Provider as PaperProvider } from "react-native-paper";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as React from 'react';
+import { StatusBar, AppState, View, ActivityIndicator } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { NavigationContainer } from '@react-navigation/native';
+import { Provider as PaperProvider } from 'react-native-paper';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import AppNavigator from "./src/navigation/AppNavigator";
-import AuthNavigator from "./src/navigation/AuthNavigator";
-import { appTheme, COLORS } from "./src/ui/theme";
-import { initToken } from "./src/api/auth";
+import AuthNavigator from './src/navigation/AuthNavigator';
+import AppNavigator from './src/navigation/AppNavigator';
+import { appTheme, COLORS } from './src/ui/theme';
+import { initToken } from './src/api/auth';
 
-const AppContent: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const isDarkMode = useColorScheme() === "dark";
-  const checkInterval = React.useRef<ReturnType<typeof setInterval>>(null);
+// (optional) Context để màn Login/Logout gọi refresh
+export const AuthContext = React.createContext<{ refreshAuth: () => void }>({
+  refreshAuth: () => {},
+});
 
-  const checkAuthStatus = React.useCallback(async () => {
+export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = React.useState<boolean>(false);
+  const [loading, setLoading] = React.useState<boolean>(true);
+  const appStateRef = React.useRef(AppState.currentState);
+
+  const checkAuth = React.useCallback(async () => {
     try {
-      const token = await AsyncStorage.getItem("access_token");
-      console.log("[Auth] Token status:", !!token);
+      const token = await AsyncStorage.getItem('access_token');
       if (token) {
-        await initToken();
+        await initToken(); // set header, validate token if needed
         setIsAuthenticated(true);
       } else {
         setIsAuthenticated(false);
       }
-    } catch (error) {
-      console.error("[Auth] Error checking token:", error);
+    } catch {
       setIsAuthenticated(false);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }, []);
 
-  // Check auth status on mount and periodically
+  // Mount + khi app quay lại foreground
   React.useEffect(() => {
-    // Initial check
-    checkAuthStatus();
+    checkAuth();
+    const sub = AppState.addEventListener('change', (s) => {
+      if (appStateRef.current.match(/inactive|background/) && s === 'active') checkAuth();
+      appStateRef.current = s;
+    });
+    return () => sub.remove();
+  }, [checkAuth]);
 
-    // Set up periodic check every second
-    checkInterval.current = setInterval(checkAuthStatus, 1000);
+  const refreshAuth = React.useCallback(() => {
+    setLoading(true);
+    checkAuth();
+  }, [checkAuth]);
 
-    // Cleanup interval on unmount
-    return () => {
-      if (checkInterval.current) {
-        clearInterval(checkInterval.current);
-      }
-    };
-  }, [checkAuthStatus]);
-
-  if (isLoading) {
+  if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: COLORS.background }}>
+      <View style={{ flex: 1, backgroundColor: COLORS.background, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
 
   return (
-    <NavigationContainer>
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
-      {isAuthenticated ? <AppNavigator /> : <AuthNavigator />}
-    </NavigationContainer>
-  );
-};
-
-export default function App() {
-  return (
     <SafeAreaProvider>
       <PaperProvider theme={appTheme}>
-        <AppContent />
+        <AuthContext.Provider value={{ refreshAuth }}>
+          <NavigationContainer>
+            <StatusBar barStyle="dark-content" />
+            {isAuthenticated ? <AppNavigator /> : <AuthNavigator />}
+          </NavigationContainer>
+        </AuthContext.Provider>
       </PaperProvider>
     </SafeAreaProvider>
   );
